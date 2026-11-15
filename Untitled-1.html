@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EV Charging Station Allocation System</title>
+<style>
+  :root{
+    --bg1:#0f172a; --bg2:#1e1b4b;
+    --card:#ffffff14; --border:#ffffff22;
+    --green:#22c55e; --blue:#3b82f6; --amber:#f59e0b; --purple:#a855f7; --red:#ef4444; --cyan:#06b6d4;
+    --text:#e2e8f0; --muted:#94a3b8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:var(--text);min-height:100vh;padding:20px}
+  header{text-align:center;margin-bottom:20px}
+  header h1{font-size:2rem;background:linear-gradient(90deg,var(--cyan),var(--green),var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  header p{color:var(--muted);margin-top:6px}
+  .badge{display:inline-block;margin-top:10px;padding:5px 14px;border-radius:20px;background:#a855f733;border:1px solid var(--purple);color:#e9d5ff;font-size:.85rem}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;backdrop-filter:blur(8px);border-top:4px solid var(--c)}
+  .stat .label{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+  .stat .value{font-size:2.1rem;font-weight:700;margin-top:4px;color:var(--c)}
+  .stat .sub{font-size:.75rem;color:var(--muted)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:20px}
+  button{border:none;padding:10px 18px;border-radius:10px;font-weight:600;cursor:pointer;color:#fff;transition:.2s}
+  button:hover{transform:translateY(-2px);filter:brightness(1.15)}
+  .b-add{background:linear-gradient(90deg,var(--blue),var(--cyan))}
+  .b-auto{background:linear-gradient(90deg,var(--green),#84cc16)}
+  .b-auto.on{background:linear-gradient(90deg,var(--red),var(--amber))}
+  .b-reset{background:#475569}
+  .controls label{color:var(--muted);font-size:.85rem;display:flex;align-items:center;gap:8px}
+  input[type=range]{accent-color:var(--cyan)}
+  select{padding:8px;border-radius:8px;border:1px solid var(--border);background:#1e293b;color:var(--text)}
+
+  .grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px}
+  .panel h2{font-size:1.05rem;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+  .chargers{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+  .charger{border-radius:14px;padding:14px;border:2px solid var(--c);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 22%,transparent),#0000);transition:.3s}
+  .charger .top{display:flex;justify-content:space-between;font-weight:700}
+  .charger .state{font-size:.8rem;margin:6px 0;padding:3px 10px;border-radius:12px;display:inline-block;background:var(--c);color:#0b1220;font-weight:700}
+  .charger .ev{font-size:.85rem;color:var(--muted);min-height:20px}
+  .bar{height:10px;background:#ffffff1a;border-radius:6px;overflow:hidden;margin-top:8px}
+  .bar>div{height:100%;width:0;background:var(--c);transition:width .25s}
+  .charger.Available{--c:var(--green)}
+  .charger.Charging{--c:var(--blue)}
+  .charger.Completed{--c:var(--amber)}
+  .charger.Released{--c:var(--purple)}
+
+  .semaphore{text-align:center}
+  .sem-value{font-size:4rem;font-weight:800;background:linear-gradient(90deg,var(--green),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sem-value.zero{background:linear-gradient(90deg,var(--red),var(--amber));-webkit-background-clip:text;background-clip:text}
+  .sem-note{color:var(--muted);font-size:.8rem}
+  .dots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+  .dot{width:18px;height:18px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);transition:.3s}
+  .dot.used{background:#334155;box-shadow:none}
+
+  .queue{display:flex;flex-wrap:wrap;gap:8px;min-height:40px}
+  .q-item{background:linear-gradient(90deg,var(--amber),#fb923c);color:#1f1300;padding:6px 12px;border-radius:20px;font-weight:700;font-size:.85rem;animation:pop .3s}
+  .empty{color:var(--muted);font-size:.85rem}
+  @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+
+  .lifecycle{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;font-size:.85rem}
+  .lc{padding:6px 14px;border-radius:20px;font-weight:700;color:#0b1220}
+  .lc.a{background:var(--green)}.lc.c{background:var(--blue)}.lc.d{background:var(--amber)}.lc.r{background:var(--purple)}
+
+  .log{max-height:250px;overflow-y:auto;font-family:Consolas,monospace;font-size:.8rem}
+  .log div{padding:5px 8px;border-left:3px solid var(--c);margin-bottom:4px;background:#ffffff08;border-radius:4px}
+  .log .time{color:var(--muted);margin-right:6px}
+
+  .utilbar{height:18px;background:#ffffff1a;border-radius:10px;overflow:hidden}
+  .utilbar>div{height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));transition:width .3s}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ EV Charging Station Allocation System</h1>
+  <p>More EVs request charging than the number of available charging points — the software limits simultaneous charging.</p>
+  <span class="badge">OS Concept: Counting Semaphore</span>
+</header>
+
+<section class="stats">
+  <div class="stat" style="--c:var(--green)"><div class="label">Free Chargers (Semaphore)</div><div class="value" id="sFree">0</div><div class="sub">semaphore value</div></div>
+  <div class="stat" style="--c:var(--blue)"><div class="label">Charging Now</div><div class="value" id="sCharging">0</div><div class="sub">holding a permit</div></div>
+  <div class="stat" style="--c:var(--amber)"><div class="label">Waiting EVs</div><div class="value" id="sWaiting">0</div><div class="sub">blocked in queue</div></div>
+  <div class="stat" style="--c:var(--purple)"><div class="label">Completed</div><div class="value" id="sDone">0</div><div class="sub">total EVs served</div></div>
+  <div class="stat" style="--c:var(--cyan)"><div class="label">Total Requests</div><div class="value" id="sTotal">0</div><div class="sub">EVs arrived</div></div>
+</section>
+
+<section class="controls">
+  <button class="b-add" onclick="requestCharge()">🚗 Add 1 EV Request</button>
+  <button class="b-auto" id="autoBtn" onclick="toggleAuto()">▶ Auto Arrivals</button>
+  <label>Chargers:
+    <select id="chargerCount" onchange="resetSystem()">
+      <option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option>
+    </select>
+  </label>
+  <label>Charge speed:
+    <input type="range" id="speed" min="1" max="10" value="5"> <span id="speedLbl">5</span>
+  </label>
+  <button class="b-reset" onclick="resetSystem()">↺ Reset</button>
+</section>
+
+<div class="grid">
+  <div>
+    <div class="panel">
+      <h2>🔌 Charging Points</h2>
+      <div class="chargers" id="chargers"></div>
+    </div>
+    <div class="panel">
+      <h2>⏳ Waiting Queue (blocked on wait())</h2>
+      <div class="queue" id="queue"></div>
+    </div>
+    <div class="panel">
+      <h2>📜 Event Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel semaphore">
+      <h2>🚦 Counting Semaphore</h2>
+      <div class="sem-value" id="semValue">3</div>
+      <div class="sem-note">Initial value = number of chargers.<br>wait(): value-- (block if 0) &nbsp;|&nbsp; signal(): value++</div>
+      <div class="dots" id="dots"></div>
+    </div>
+    <div class="panel">
+      <h2>📊 Charger Utilization</h2>
+      <div class="utilbar"><div id="util"></div></div>
+      <p class="sem-note" style="margin-top:6px" id="utilTxt">0%</p>
+    </div>
+    <div class="panel">
+      <h2>🔄 Charger Lifecycle</h2>
+      <div class="lifecycle">
+        <span class="lc a">Available</span>→<span class="lc c">Charging</span>→<span class="lc d">Completed</span>→<span class="lc r">Released</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Counting Semaphore ---------- */
+class CountingSemaphore {
+  constructor(n){ this.value = n; this.max = n; this.waiters = []; }
+  // wait(): take a permit, or block (enqueue) when none are left
+  wait(ev){
+    if(this.value > 0){ this.value--; return true; }
+    this.waiters.push(ev); return false;
+  }
+  // signal(): return a permit, and wake the first blocked EV if there is one
+  signal(){
+    if(this.waiters.length > 0) return this.waiters.shift(); // permit handed directly to waiter
+    this.value++; return null;
+  }
+}
+
+let sem, chargers = [], evCounter = 0, completed = 0, autoTimer = null;
+
+function init(){
+  const n = parseInt(document.getElementById('chargerCount').value);
+  sem = new CountingSemaphore(n);
+  chargers = Array.from({length:n}, (_,i)=>({id:i+1, state:'Available', ev:null, progress:0}));
+  evCounter = 0; completed = 0;
+  document.getElementById('log').innerHTML = '';
+  log(`System started with ${n} charging points. Semaphore = ${n}`, 'var(--cyan)');
+  render();
+}
+
+function resetSystem(){ stopAuto(); init(); }
+
+function requestCharge(){
+  const ev = { id: ++evCounter, name: 'EV-' + String(evCounter).padStart(2,'0') };
+  log(`${ev.name} requests charging → wait()`, 'var(--blue)');
+  if(sem.wait(ev)){ assign(ev); }
+  else { log(`${ev.name} BLOCKED – no free charger (semaphore = 0)`, 'var(--amber)'); }
+  render();
+}
+
+function assign(ev){
+  const c = chargers.find(c => c.state === 'Available');
+  c.state = 'Charging'; c.ev = ev; c.progress = 0;
+  log(`${ev.name} acquired Charger ${c.id} → Charging`, 'var(--green)');
+}
+
+/* ---------- Simulation loop ---------- */
+setInterval(()=>{
+  const speed = parseInt(document.getElementById('speed').value);
+  chargers.forEach(c=>{
+    if(c.state === 'Charging'){
+      c.progress += speed * (0.6 + Math.random()*0.8);
+      if(c.progress >= 100){
+        c.progress = 100; c.state = 'Completed';
+        completed++;
+        log(`${c.ev.name} finished on Charger ${c.id} → Completed`, 'var(--amber)');
+        setTimeout(()=>releaseCharger(c), 900);
+      }
+    }
+  });
+  render();
+}, 300);
+
+function releaseCharger(c){
+  if(c.state !== 'Completed') return;
+  c.state = 'Released';
+  log(`Charger ${c.id} → Released, signal()`, 'var(--purple)');
+  render();
+  setTimeout(()=>{
+    c.ev = null; c.progress = 0; c.state = 'Available';
+    const next = sem.signal();
+    if(next){ assign(next); }
+    else { log(`Charger ${c.id} is Available again`, 'var(--green)'); }
+    render();
+  }, 700);
+}
+
+/* ---------- Auto arrivals ---------- */
+function toggleAuto(){ autoTimer ? stopAuto() : startAuto(); }
+function startAuto(){
+  autoTimer = setInterval(()=>{ if(Math.random() < 0.7) requestCharge(); }, 1200);
+  const b = document.getElementById('autoBtn'); b.textContent = '⏸ Stop Auto'; b.classList.add('on');
+}
+function stopAuto(){
+  clearInterval(autoTimer); autoTimer = null;
+  const b = document.getElementById('autoBtn'); b.textContent = '▶ Auto Arrivals'; b.classList.remove('on');
+}
+
+/* ---------- Rendering ---------- */
+function render(){
+  const charging = chargers.filter(c=>c.state==='Charging').length;
+  const busy = chargers.filter(c=>c.state!=='Available').length;
+  document.getElementById('sFree').textContent = sem.value;
+  document.getElementById('sCharging').textContent = charging;
+  document.getElementById('sWaiting').textContent = sem.waiters.length;
+  document.getElementById('sDone').textContent = completed;
+  document.getElementById('sTotal').textContent = evCounter;
+
+  const sv = document.getElementById('semValue');
+  sv.textContent = sem.value; sv.classList.toggle('zero', sem.value === 0);
+
+  document.getElementById('dots').innerHTML =
+    Array.from({length:sem.max}, (_,i)=>`<div class="dot ${i < sem.value ? '' : 'used'}"></div>`).join('');
+
+  document.getElementById('chargers').innerHTML = chargers.map(c=>`
+    <div class="charger ${c.state}">
+      <div class="top"><span>Charger ${c.id}</span><span>${c.state==='Charging'?'⚡':c.state==='Available'?'🟢':c.state==='Completed'?'✅':'🔓'}</span></div>
+      <span class="state">${c.state}</span>
+      <div class="ev">${c.ev ? '🚗 ' + c.ev.name : 'Waiting for EV…'}</div>
+      <div class="bar"><div style="width:${c.progress}%"></div></div>
+      <div class="ev" style="margin-top:4px">${Math.round(c.progress)}%</div>
+    </div>`).join('');
+
+  document.getElementById('queue').innerHTML = sem.waiters.length
+    ? sem.waiters.map(e=>`<span class="q-item">${e.name}</span>`).join('')
+    : '<span class="empty">No EVs waiting 🎉</span>';
+
+  const util = Math.round(busy / chargers.length * 100);
+  document.getElementById('util').style.width = util + '%';
+  document.getElementById('utilTxt').textContent = `${util}% of chargers in use`;
+}
+
+function log(msg, color){
+  const t = new Date().toLocaleTimeString();
+  const d = document.createElement('div');
+  d.style.setProperty('--c', color);
+  d.innerHTML = `<span class="time">${t}</span>${msg}`;
+  const box = document.getElementById('log');
+  box.prepend(d);
+  while(box.children.length > 60) box.removeChild(box.lastChild);
+}
+
+document.getElementById('speed').addEventListener('input', e=>{
+  document.getElementById('speedLbl').textContent = e.target.value;
+});
+
+init();
+</script>
+</body>
+</html>

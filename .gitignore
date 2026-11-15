@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+.vscode/
+
+# Runtime data (contains test owner names and plates)
+data/*.json
+data/*.tmp
